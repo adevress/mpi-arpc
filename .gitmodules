@@ -1,0 +1,6 @@
+[submodule "mpi-cpp"]
+	path = deps/mpi-cpp
+	url = https://github.com/adevress/mpi-cpp.git
+[submodule "cereal"]
+	path = deps/cereal
+	url = https://github.com/USCiLab/cereal.git
