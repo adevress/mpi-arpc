@@ -21,6 +21,7 @@
 
 #include <tuple>
 #include <functional>
+#include <algorithm>
 #include <type_traits>
 #include <vector>
 #include <sstream>
@@ -96,8 +97,7 @@ public:
     std::vector<char> deserialize_and_call(const std::vector<char> & arguments){
         using namespace serializer;
 
-        std::string input_buffer;
-        std::copy(arguments.begin(), arguments.end(), std::back_inserter(input_buffer));
+        std::string input_buffer(arguments.data(), arguments.size());
         std::istringstream iss(input_buffer);
 
         type_tuple func_arg;
@@ -126,7 +126,8 @@ public:
         archiver(func_arg);
 
         std::string res = oss.str();
-        std::copy(res.begin(), res.end(), std::back_inserter(result));
+        result.resize(res.size()+1);
+        std::copy_n(res.begin(), res.size()+1, result.begin());
 
         return result;
     }

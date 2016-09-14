@@ -59,3 +59,5 @@ BOOST_AUTO_TEST_CASE( remote_callable_lambda )
     std::vector<char> res = callable.deserialize_and_call(buffer);
 
 }
+
+

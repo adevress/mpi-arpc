@@ -6,7 +6,8 @@ enable_testing()
 set(VERSION_MAJOR "0")
 set(VERSION_MINOR "1")
 
-option(UNIT_TESTS "Enable or disable unit tests execution" TRUE)
+option(UNIT_TESTS "Enable or disable unit tests compilation" TRUE)
+option(PERF_TESTS "Enable or disable perf tests compilation" TRUE)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake
       ${PROJECT_SOURCE_DIR}/CMake/portability
@@ -34,4 +35,5 @@ include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/deps/cereal/include )
 
 add_subdirectory(deps)
 add_subdirectory(test/unit)
+add_subdirectory(test/perf)
 
