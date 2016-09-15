@@ -31,7 +31,7 @@ BOOST_AUTO_TEST_CASE( remote_callable_basic )
 
     remote_callable<int, std::string, std::string> callable(print_args);
 
-    std::vector<char> buffer = callable.serialize("hello", "world");
+    std::vector<char> buffer = callable.serialize<std::string, std::string>("hello", "world");
 
 
     std::vector<char> res = callable.deserialize_and_call(buffer);
@@ -53,11 +53,31 @@ BOOST_AUTO_TEST_CASE( remote_callable_lambda )
         return 42;
     });
 
-    std::vector<char> buffer = callable.serialize("hello", "world");
+    std::vector<char> buffer = callable.serialize<std::string, std::string>("hello", "world");
 
 
     std::vector<char> res = callable.deserialize_and_call(buffer);
 
 }
 
+
+std::string hello_function(const std::string & str){
+        return std::string("hello world, ") + str + std::string(" !");
+}
+
+
+BOOST_AUTO_TEST_CASE(  remote_function_test )
+{
+    using namespace mpi::arpc;
+
+    execution_pool_pthread service(&argc, &argv);
+
+    remote_function<std::string, std::string> my_func(hello_function);
+
+
+    std::string result = my_func.execute_local(std::string("bob"));
+
+    BOOST_CHECK_EQUAL("hello world, bob !", result);
+    std::cout << "verify " << result << std::endl;
+}
 

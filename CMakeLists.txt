@@ -18,6 +18,7 @@ include(BlueGenePortability)
 include(DefineInstallationPaths)
 include(ReleaseDebugAutoFlags)
 
+find_package(Threads)
 find_package(MPI)
 
 add_definitions( -std=c++11 )
@@ -27,10 +28,14 @@ file(GLOB MPI_CPP_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/mpi-arpc/*)
 file(GLOB MPI_CPP_HEADERS_1 ${CMAKE_CURRENT_SOURCE_DIR}/include/mpi-arpc/*/*)
 
 
-include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/include/ ${BOOST_INCLUDE_DIR} )
-
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/include/ )
+include_directories(  ${BOOST_INCLUDE_DIR}  )
+include_directories(  ${MPI_C_INCLUDE_PATH}  )
 
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/deps/cereal/include )
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/deps/mpi-cpp/include )
+
+add_subdirectory(src)
 
 
 add_subdirectory(deps)

@@ -15,18 +15,11 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
+#ifndef _MPI_ARPC_HPP
+#define _MPI_ARPC_HPP
+
+#include "execution_pool.hpp"
+#include "remote_function.hpp"
 
 
-#include "bits/remote_callable.hpp"
-
-namespace mpi {
-
-namespace arpc{
-
-
-
-};
-
-
-};
-
+#endif
