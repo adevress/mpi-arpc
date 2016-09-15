@@ -21,6 +21,7 @@
 #include <chrono>
 #include <functional>
 #include <mutex>
+#include <cstddef>
 
 #include <mpi-cpp/mpi.hpp>
 
@@ -65,8 +66,12 @@ public:
 
     }
 
-    void send(int rank, int tag, const std::vector<char> & data){
+    inline void send(int rank, int tag, const std::vector<char> & data){
         comm.send(data, rank, tag);
+    }
+
+    inline void barrier(){
+        comm.barrier();
     }
 
 private:
@@ -127,7 +132,8 @@ public:
         env(argc, argv),
         io(MPI_COMM_WORLD, [&] (int rank, int id, const std::vector<char> & data) {
             this->recv_handler(rank, id, data);
-    }) {}
+        }),
+        n(2) {}
 
 
     void recv_handler(int rank, int id, const std::vector<char> & data){
@@ -135,10 +141,15 @@ public:
     }
 
 
-    std::unordered_map<std::string, std::shared_ptr<internal::callable_object> > function_map;
+    std::mutex map_locker;
+
+    std::unordered_map<int, std::shared_ptr<internal::callable_object> > int_to_function_map;
+
+    std::unordered_map<std::shared_ptr<internal::callable_object>, int > function_to_in_map;
 
     mpi::mpi_scope_env env;
     service_io io;
+    std::size_t n;
 };
 
 
@@ -147,15 +158,30 @@ execution_pool_pthread::execution_pool_pthread(int* argc, char*** argv): d_ptr(n
 execution_pool_pthread::~execution_pool_pthread() {}
 
 
-void execution_pool_pthread::register_function_internal(const std::string & function_name, std::shared_ptr<internal::callable_object> && callable){
-    if(d_ptr->function_map.insert(std::make_pair(function_name, callable)).second != true){
-        throw std::runtime_error(std::string("registered function named '") + function_name + "'' already exist" );
+void execution_pool_pthread::register_function_internal(std::shared_ptr<internal::callable_object> && callable){
+    std::size_t id = d_ptr->n + 2;
+
+    {
+        std::lock_guard<std::mutex> lock(d_ptr->map_locker);
+
+        if(d_ptr->int_to_function_map.insert(std::make_pair(id, std::move(callable))).second != true){
+            throw std::runtime_error(std::string("registered function with id '") + std::to_string(id) + "'' already exist" );
+        }
+
+        if(d_ptr->int_to_function_map.insert(std::make_pair(id, std::move(callable))).second != true){
+            throw std::runtime_error(std::string("registered function. ptr already registered ") + std::to_string(ptrdiff_t(callable.get())) );
+        }
+
+        d_ptr->n = id;
     }
+
+    d_ptr->io.barrier();
 }
 
 
-std::shared_ptr<internal::callable_object> execution_pool_pthread::resolve_function_internal(const std::string & function_name){
-    auto it = d_ptr->function_map.find(function_name);
+/*
+std::shared_ptr<internal::callable_object> execution_pool_pthread::resolve_function_internal(int id){
+    auto it = d_ptr->func.find(function_name);
     if(it == d_ptr->function_map.end()){
         throw std::runtime_error(std::string("no registered function named '") + function_name + "''" );
     }
@@ -163,7 +189,7 @@ std::shared_ptr<internal::callable_object> execution_pool_pthread::resolve_funct
     return it->second;
 }
 
-
+*/
 
 
 }; // arpc

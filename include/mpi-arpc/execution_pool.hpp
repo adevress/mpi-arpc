@@ -43,18 +43,13 @@ public:
     execution_pool_pthread(int* argc, char*** argv);
     virtual ~execution_pool_pthread();
 
-    template < typename Ret, typename... Args >
-    inline void register_function(const std::string & function_name,
-                           const std::function<Ret(Args...)> & function_object
-                           ){
+    template < typename Fun>
+    inline void register_function(const Fun & fun){
         using namespace std;
-        shared_ptr<internal::callable_object> callable =
 
-                static_pointer_cast<internal::callable_object>(
-                        make_shared<internal::remote_callable<Ret, Args...> >(function_object)
-                    );
-
-        register_function_internal(function_name, std::move(callable));
+        shared_ptr<internal::callable_object> callable = fun._callable;
+        register_function_internal(std::move(callable));
+        fun._pool = this;
     }
 
 
@@ -63,7 +58,7 @@ private:
 
     execution_pool_pthread(const execution_pool_pthread &) = delete;
 
-    void register_function_internal(const std::string &, std::shared_ptr<internal::callable_object> && callable);
+    void register_function_internal(std::shared_ptr<internal::callable_object> && callable);
 
     std::shared_ptr<internal::callable_object> resolve_function_internal(const std::string & function_name);
 };

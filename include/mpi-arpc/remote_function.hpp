@@ -27,6 +27,8 @@ namespace mpi {
 
 namespace arpc{
 
+class execution_pool_pthread;
+
 ///
 /// \brief remote_function
 ///
@@ -39,10 +41,10 @@ public:
 
     typedef Ret result_type;
 
-    remote_function(const std::function<Ret(Args...)> & function_object){
+    remote_function(const std::function<Ret(Args...)> & function_object) :
+        _callable(std::make_shared<internal::remote_callable<Ret, Args... > >(function_object)),
+        _pool(nullptr){
 
-        using namespace std;
-        _callable = make_shared<internal::remote_callable<Ret, Args... > >(function_object);
     }
 
     virtual ~remote_function(){};
@@ -62,6 +64,9 @@ private:
     remote_function(const remote_function &) = delete;
 
     std::shared_ptr<internal::remote_callable<Ret, Args...> > _callable;
+    execution_pool_pthread* _pool;
+
+    friend class execution_pool_pthread;
 
 };
 
