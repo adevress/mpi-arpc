@@ -154,6 +154,7 @@ private:
             if(handle.is_valid()){
                 mpi::mpi_future<std::vector<char> > data = comm.recv_async< std::vector<char> >(handle);
                 recv_task(handle.rank(), handle.tag(), data.get());
+		continue;
             }
 
             std::this_thread::sleep_for(std::chrono::microseconds(1));
@@ -163,12 +164,13 @@ private:
 
     void poll(){
         while(!finished){
-            mpi::mpi_comm::message_handle handle = comm.probe(mpi::any_source, mpi::any_tag, 0);
+            mpi::mpi_comm::message_handle handle = comm.probe(mpi::any_source, mpi::any_tag, 1);
             if(handle.is_valid()){
                 std::lock_guard<std::mutex> lock(task_mutex);
                 handles.emplace_back(handle);
+		continue;
             }
-            std::this_thread::sleep_for(std::chrono::microseconds(1));
+           // std::this_thread::sleep_for(std::chrono::microseconds(1));
         }
     }
 

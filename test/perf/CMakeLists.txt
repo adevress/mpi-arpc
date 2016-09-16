@@ -20,6 +20,13 @@ add_executable(remote_callable_perf_bin ${remote_callable_perf_src})
 target_link_libraries(remote_callable_perf_bin ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
 
 
+## remote_function_perf_tests Test
+LIST(APPEND remote_function_perf_src "remote_function_perf.cpp")
+
+add_executable(remote_function_perf_bin ${remote_function_perf_src})
+target_link_libraries(remote_function_perf_bin mpi_arpc ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
+
+
 
 ## remote_function_example_perf_tests Test
 LIST(APPEND remote_function_example_perf_src "remote_function_example_perf.cpp")
