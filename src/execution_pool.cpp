@@ -31,6 +31,61 @@ namespace mpi {
 
 namespace arpc{
 
+namespace {
+
+constexpr int tag_range1_begin = 2;
+constexpr int tag_range1_end = tag_range1_begin+ std::numeric_limits<int>::max()/4;
+constexpr int tag_range2_begin = tag_range1_end;
+constexpr int tag_range2_end = tag_range1_end + std::numeric_limits<int>::max()/4;
+
+
+template<typename Fun>
+class request_stack{
+public:
+
+    int register_req(const Fun & req){
+        std::lock_guard<std::mutex> lock(mutex_request);
+
+        requests.push_back(req);
+        return tag_range2_begin + requests.size() -1;
+    }
+
+    Fun & get_request_from_id(int id){
+        assert(id >= tag_range2_begin);
+
+        std::lock_guard<std::mutex> lock(mutex_request);
+        const size_t offset = id - tag_range2_begin;
+        assert((offset)  < requests.size());
+        assert(requests[offset] != nullptr);
+        return requests[offset];
+    }
+
+    void pop_request(int id){
+        assert(id >= tag_range2_begin);
+
+        std::lock_guard<std::mutex> lock(mutex_request);
+
+        const size_t offset = id - tag_range2_begin;
+        assert((offset)  < requests.size());
+
+        // invalidate the request
+        requests[offset] = Fun();
+
+        // pop every last invalid request in stack mode
+        while(requests.size() > 0 && requests.back() == nullptr){
+            requests.pop_back();
+        }
+
+    }
+
+private:
+    std::vector<Fun> requests;
+    std::mutex mutex_request;
+};
+
+
+}
+
 
 class service_io{
 public:
@@ -42,6 +97,8 @@ public:
         comm()
     {
         (void) my_comm;
+        comm.barrier();
+
         const std::size_t n_thread = std::thread::hardware_concurrency();
 
         poll_thread = std::thread([&]{
@@ -56,6 +113,7 @@ public:
     }
 
     ~service_io(){
+        comm.barrier();
         finished = true;
 
         poll_thread.join();
@@ -72,6 +130,10 @@ public:
 
     inline void barrier(){
         comm.barrier();
+    }
+
+    inline mpi_comm & get_comm(){
+        return comm;
     }
 
 private:
@@ -133,11 +195,32 @@ public:
         io(MPI_COMM_WORLD, [&] (int rank, int id, const std::vector<char> & data) {
             this->recv_handler(rank, id, data);
         }),
-        n(2) {}
+        n(tag_range1_begin) {}
 
 
     void recv_handler(int rank, int id, const std::vector<char> & data){
-        std::cout << "recv msg from friend " << rank << " id " << id << " data " << std::string(data.data(), data.size()) <<std::endl; ;
+
+        int callable_id = id & 0xffff;
+        int request_id = ((id >> 16) & 0xffff) + tag_range2_begin;
+
+        //std::cout << "dest from " << rank << " callable_id " << callable_id << " request_id " << request_id <<std::endl;
+
+        if(callable_id == 0){ // response
+            req_stack.get_request_from_id(request_id)(data);
+            req_stack.pop_request(request_id);
+        }else{
+            try{
+               int new_tag = id & (~0xffff);
+               std::vector<char> serialized_result = int_to_function_map[callable_id]->deserialize_and_call(data);
+               //std::cout << "result !" <<
+               // std::string(serialized_result.data(), serialized_result.size())  << " " << serialized_result.size() << std::endl;
+               io.send(rank, new_tag, serialized_result);
+            }catch(std::exception & e){
+                std::cerr << "<exception> on rank " << io.get_comm().rank()
+                          << " with request from rank " << rank << " " << e.what() << std::endl;
+            }
+        }
+
     }
 
 
@@ -146,6 +229,10 @@ public:
     std::unordered_map<int, std::shared_ptr<internal::callable_object> > int_to_function_map;
 
     std::unordered_map<std::shared_ptr<internal::callable_object>, int > function_to_in_map;
+
+
+    request_stack<std::function< void(const std::vector<char> &)> > req_stack;
+
 
     mpi::mpi_scope_env env;
     service_io io;
@@ -158,17 +245,17 @@ execution_pool_pthread::execution_pool_pthread(int* argc, char*** argv): d_ptr(n
 execution_pool_pthread::~execution_pool_pthread() {}
 
 
-void execution_pool_pthread::register_function_internal(std::shared_ptr<internal::callable_object> && callable){
-    std::size_t id = d_ptr->n + 2;
+int execution_pool_pthread::register_function_internal(std::shared_ptr<internal::callable_object> callable){
+    std::size_t id = d_ptr->n +1;
 
     {
         std::lock_guard<std::mutex> lock(d_ptr->map_locker);
 
-        if(d_ptr->int_to_function_map.insert(std::make_pair(id, std::move(callable))).second != true){
+        if(d_ptr->int_to_function_map.insert(std::make_pair(id, callable)).second != true){
             throw std::runtime_error(std::string("registered function with id '") + std::to_string(id) + "'' already exist" );
         }
 
-        if(d_ptr->int_to_function_map.insert(std::make_pair(id, std::move(callable))).second != true){
+        if(d_ptr->function_to_in_map.insert(std::make_pair(callable, id)).second != true){
             throw std::runtime_error(std::string("registered function. ptr already registered ") + std::to_string(ptrdiff_t(callable.get())) );
         }
 
@@ -176,20 +263,28 @@ void execution_pool_pthread::register_function_internal(std::shared_ptr<internal
     }
 
     d_ptr->io.barrier();
+    return id;
 }
 
 
-/*
-std::shared_ptr<internal::callable_object> execution_pool_pthread::resolve_function_internal(int id){
-    auto it = d_ptr->func.find(function_name);
-    if(it == d_ptr->function_map.end()){
-        throw std::runtime_error(std::string("no registered function named '") + function_name + "''" );
-    }
-
-    return it->second;
+bool execution_pool_pthread::is_local(int rank){
+    return d_ptr->io.get_comm().rank() == rank;
 }
 
-*/
+void execution_pool_pthread::send_request(int rank, int callable_id, const std::vector<char> & args_serialized,
+                  const std::function<void (const std::vector<char> &)> & callback){
+
+    int req_id = d_ptr->req_stack.register_req(callback);
+
+    //std::cout << "source from " << rank << " callable_id " << callable_id << " request_id " << req_id <<std::endl;
+
+    assert(callable_id < 0xffff);
+    int tag = (callable_id & 0xffff);
+    tag |= ((req_id - tag_range2_begin) << 16);
+
+    d_ptr->io.send(rank, tag, args_serialized);
+}
+
 
 
 }; // arpc

@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <memory>
+#include <future>
 
 #include "bits/remote_callable.hpp"
 
@@ -43,6 +44,7 @@ public:
 
     remote_function(const std::function<Ret(Args...)> & function_object) :
         _callable(std::make_shared<internal::remote_callable<Ret, Args... > >(function_object)),
+        _callable_id(0),
         _pool(nullptr){
 
     }
@@ -60,13 +62,45 @@ public:
     }
 
 
+    std::future<result_type> operator()(int rank, Args... args){
+        check_service_association();
+
+        // if request is local to node, execute directly
+        if(_pool->is_local(rank)){
+            return std::async(std::launch::deferred, [&](){ return this->execute_local(args...);});
+        }
+
+        auto prom = std::make_shared<std::promise<result_type> >();
+        auto future_result = prom->get_future();
+        std::vector<char> args_serialized = _callable->serialize(args...);
+        std::shared_ptr<internal::remote_callable<Ret, Args...> > callback_callable = _callable;
+
+        _pool->send_request(rank, _callable_id, args_serialized, std::function<void (const std::vector<char> &)>(
+                                [prom, callback_callable] (const std::vector<char> & result ) {
+                                    //std::cout << "back on earth " << std::string(result.data(), result.size()) << " " << result.size() << std::endl;
+                                    result_type res = callback_callable->deserialize_result(result);
+                                    prom->set_value(res);
+                                })
+                            );
+        return future_result;
+    }
+
+
 private:
     remote_function(const remote_function &) = delete;
 
     std::shared_ptr<internal::remote_callable<Ret, Args...> > _callable;
+
+    int _callable_id;
     execution_pool_pthread* _pool;
 
     friend class execution_pool_pthread;
+
+    void check_service_association(){
+        if(_pool == nullptr){
+            throw std::runtime_error("no service associated to this remote_function");
+        }
+    }
 
 };
 

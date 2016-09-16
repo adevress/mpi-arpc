@@ -21,5 +21,12 @@ target_link_libraries(remote_callable_perf_bin ${Boost_UNIT_TEST_FRAMEWORK_LIBRA
 
 
 
+## remote_function_example_perf_tests Test
+LIST(APPEND remote_function_example_perf_src "remote_function_example_perf.cpp")
+
+add_executable(remote_function_example_perf_bin ${remote_function_example_perf_src})
+target_link_libraries(remote_function_example_perf_bin ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
+
+
 
 endif()

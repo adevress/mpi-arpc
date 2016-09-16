@@ -87,6 +87,8 @@ Ret invoke_function(F f, Tuple && t)
 class callable_object{
 public:
 
+    inline callable_object(){};
+    virtual ~callable_object(){};
 
     ///
     /// function argument serializer
@@ -131,6 +133,8 @@ public:
 
     inline remote_callable() : _func() {}
     inline remote_callable(const std::function<Ret(Args...)> & function) : _func(function) {}
+
+    virtual ~remote_callable(){};
 
     std::vector<char> serialize_result(result_type arg){
         using namespace serializer;

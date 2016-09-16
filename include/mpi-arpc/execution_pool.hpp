@@ -44,21 +44,23 @@ public:
     virtual ~execution_pool_pthread();
 
     template < typename Fun>
-    inline void register_function(const Fun & fun){
+    inline void register_function(Fun & fun){
         using namespace std;
 
-        shared_ptr<internal::callable_object> callable = fun._callable;
-        register_function_internal(std::move(callable));
+        fun._callable_id =  register_function_internal(fun._callable);
         fun._pool = this;
     }
 
+    bool is_local(int rank);
 
+    void send_request(int rank, int callable_id, const std::vector<char> & args_serialized,
+                      const std::function<void (const std::vector<char> &)> & callback);
 private:
     std::unique_ptr<pimpl> d_ptr;
 
     execution_pool_pthread(const execution_pool_pthread &) = delete;
 
-    void register_function_internal(std::shared_ptr<internal::callable_object> && callable);
+    int register_function_internal(std::shared_ptr<internal::callable_object>  callable);
 
     std::shared_ptr<internal::callable_object> resolve_function_internal(const std::string & function_name);
 };

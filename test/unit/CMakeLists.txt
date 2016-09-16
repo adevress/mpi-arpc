@@ -33,4 +33,13 @@ target_link_libraries(remote_callable_bin mpi_arpc ${Boost_UNIT_TEST_FRAMEWORK_L
 add_test(NAME remote_callable COMMAND ${TESTS_PREFIX} ${TESTS_PREFIX_ARGS} ${CMAKE_CURRENT_BINARY_DIR}/remote_callable_bin)
 
 
+## remote_function_tests Test
+LIST(APPEND remote_function_src "remote_function_tests.cpp")
+
+add_executable(remote_function_bin ${remote_function_src})
+target_link_libraries(remote_function_bin mpi_arpc ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
+
+add_test(NAME remote_function COMMAND ${TESTS_PREFIX} ${TESTS_PREFIX_ARGS} ${CMAKE_CURRENT_BINARY_DIR}/remote_function_bin)
+
+
 endif()
