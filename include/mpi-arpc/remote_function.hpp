@@ -67,7 +67,7 @@ public:
 
         // if request is local to node, execute directly
         if(_pool->is_local(rank)){
-            return std::async(std::launch::deferred, [&](){ return this->execute_local(args...);});
+            return std::async(std::launch::async, [&](){ return this->execute_local(args...);});
         }
 
         auto prom = std::make_shared<std::promise<result_type> >();
