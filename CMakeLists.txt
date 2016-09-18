@@ -19,6 +19,7 @@ include(DefineInstallationPaths)
 include(ReleaseDebugAutoFlags)
 
 find_package(Threads)
+find_package(Boost 1.41.0 REQUIRED system thread)
 find_package(MPI)
 
 add_definitions( -std=c++11 )

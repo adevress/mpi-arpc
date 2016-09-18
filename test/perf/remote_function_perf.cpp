@@ -67,7 +67,7 @@ int main(int argc, char** argv)
         std::cout << "parallel_ops: " << n_parallel << std::endl;
         const std::size_t nops = n_parallel*n;
         std::cout << "total_ops: " << nops << std::endl;
-        size_t time_ms =   std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() ;
+        size_t time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() ;
         std::cout << "duration: " << time_ms<< "ms"<< std::endl;
         std::cout << "ops_per_seconds: " << double(nops)/(double(time_ms)/1000.0)<< std::endl;
 

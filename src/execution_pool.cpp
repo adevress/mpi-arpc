@@ -70,6 +70,7 @@ public:
 
         // invalidate the request
         requests[offset] = Fun();
+        assert(requests[offset] == nullptr);
 
         // pop every last invalid request in stack mode
         while(requests.size() > 0 && requests.back() == nullptr){
@@ -154,10 +155,13 @@ private:
             if(handle.is_valid()){
                 mpi::mpi_future<std::vector<char> > data = comm.recv_async< std::vector<char> >(handle);
                 recv_task(handle.rank(), handle.tag(), data.get());
-		continue;
+                continue;
             }
 
-            std::this_thread::sleep_for(std::chrono::microseconds(1));
+            {
+                std::unique_lock<std::mutex> lock(task_mutex);
+                task_cond.wait_for(lock, std::chrono::microseconds(50));
+            }
         }
     }
 
@@ -168,14 +172,14 @@ private:
             if(handle.is_valid()){
                 std::lock_guard<std::mutex> lock(task_mutex);
                 handles.emplace_back(handle);
-		continue;
+                task_cond.notify_one();
             }
-           // std::this_thread::sleep_for(std::chrono::microseconds(1));
         }
     }
 
 
     std::mutex task_mutex;
+    std::condition_variable task_cond;
     std::vector<mpi::mpi_comm::message_handle> handles;
 
 
