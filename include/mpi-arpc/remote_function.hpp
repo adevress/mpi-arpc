@@ -65,16 +65,24 @@ public:
     std::future<result_type> operator()(int rank, Args... args){
         check_service_association();
 
-        // if request is local to node, execute directly
-        if(_pool->is_local(rank)){
-            return std::async(std::launch::async, [&](){ return this->execute_local(args...);});
-        }
-
+        std::shared_ptr<internal::remote_callable<Ret, Args...> > callback_callable = _callable;
         auto prom = std::make_shared<std::promise<result_type> >();
         auto future_result = prom->get_future();
-        std::vector<char> args_serialized = _callable->serialize(args...);
-        std::shared_ptr<internal::remote_callable<Ret, Args...> > callback_callable = _callable;
 
+
+        // if request is local to node, execute directly
+        if(_pool->is_local(rank)){
+            typename internal::remote_callable<Ret, Args...>::type_tuple arg_tuple(args...);
+
+            std::async(std::launch::async, [prom, arg_tuple, callback_callable](){
+                result_type res = callback_callable->call_from_tuple(arg_tuple);
+                prom->set_value(res);
+            });
+
+            return future_result;
+        }
+
+        std::vector<char> args_serialized = _callable->serialize(args...);
         _pool->send_request(rank, _callable_id, args_serialized, std::function<void (const std::vector<char> &)>(
                                 [prom, callback_callable] (const std::vector<char> & result ) {
                                     //std::cout << "back on earth " << std::string(result.data(), result.size()) << " " << result.size() << std::endl;

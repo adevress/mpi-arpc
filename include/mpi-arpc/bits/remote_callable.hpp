@@ -130,6 +130,8 @@ public:
 
     typedef list_args<Args...> args_type_list;
 
+    typedef typename std::tuple<Args...> type_tuple;
+
 
     inline remote_callable() : _func() {}
     inline remote_callable(const std::function<Ret(Args...)> & function) : _func(function) {}
@@ -155,7 +157,6 @@ public:
 
 
     virtual std::vector<char> deserialize_and_call(const std::vector<char> & arguments){
-        typedef typename std::tuple<Args...> type_tuple;
 
         using namespace serializer;
 
@@ -169,9 +170,13 @@ public:
         archiver(func_arg);
 
 
-        result_type res_val = invoke_function<result_type>(_func, func_arg);
+        result_type res_val = call_from_tuple(func_arg);
 
         return serialize_result(res_val);
+    }
+
+    inline result_type call_from_tuple(const type_tuple & func_arg){
+        return invoke_function<result_type>(_func, func_arg);
     }
 
     inline result_type deserialize_result(const std::vector<char> & result_data){
