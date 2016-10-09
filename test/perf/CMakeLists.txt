@@ -27,6 +27,15 @@ add_executable(remote_function_perf_bin ${remote_function_perf_src})
 target_link_libraries(remote_function_perf_bin mpi_arpc ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
 
 
+## remote function perf max Test
+LIST(APPEND function_max_perf_src "function_max_perf.cpp")
+
+add_executable(function_max_perf_bin ${function_max_perf_src})
+target_link_libraries(function_max_perf_bin mpi_arpc ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
+
+
+
+
 
 ## remote_function_example_perf_tests Test
 LIST(APPEND remote_function_example_perf_src "remote_function_example_perf.cpp")
