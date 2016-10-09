@@ -18,9 +18,10 @@
 
 #include <unordered_map>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 #include <chrono>
 #include <functional>
-#include <mutex>
 #include <cstddef>
 
 #include <mpi-cpp/mpi.hpp>
@@ -69,8 +70,7 @@ public:
         assert((offset)  < requests.size());
 
         // invalidate the request
-        requests[offset] = Fun();
-        assert(requests[offset] == nullptr);
+        requests[offset] = nullptr;
 
         // pop every last invalid request in stack mode
         while(requests.size() > 0 && requests.back() == nullptr){
@@ -171,7 +171,7 @@ private:
             mpi::mpi_comm::message_handle handle = comm.probe(mpi::any_source, mpi::any_tag, 1);
             if(handle.is_valid()){
                 std::lock_guard<std::mutex> lock(task_mutex);
-                handles.emplace_back(handle);
+                handles.emplace_back(std::move(handle));
                 task_cond.notify_one();
             }
         }
