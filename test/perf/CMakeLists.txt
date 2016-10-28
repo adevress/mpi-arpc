@@ -26,6 +26,12 @@ LIST(APPEND remote_function_perf_src "remote_function_perf.cpp")
 add_executable(remote_function_perf_bin ${remote_function_perf_src})
 target_link_libraries(remote_function_perf_bin mpi_arpc ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
 
+## pingpong_perf_tests Test
+LIST(APPEND pingpong_perf_src "pingpong_perf.cpp")
+
+add_executable(pingpong_perf_bin ${pingpong_perf_src})
+target_link_libraries(pingpong_perf_bin mpi_arpc ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
+
 
 ## remote function perf max Test
 LIST(APPEND function_max_perf_src "function_max_perf.cpp")
