@@ -104,7 +104,7 @@ int main(int argc, char** argv)
                   << "\t\t" << context.av_time
                   << "\t\t" << context.min_time
                   << "\t\t" << context.max_time
-                  << "\t\t" << (context.elem_size * context.iterations) / context.av_time / ( 1000 * 1000 )
+                  << "\t\t" << (context.elem_size) / context.av_time
                   << "\n";
         }
         elem_size= elem_size << 1;

@@ -51,7 +51,7 @@ int main(int argc, char** argv)
             std::vector< std::future<int> > vec_future;
 
             for(std::size_t i =0; i < n_parallel; ++i){
-                vec_future.emplace_back( addition(1, orig1, orig2) );
+                vec_future.emplace_back( addition(0, orig1, orig2) );
             }
 
             for(auto & fut : vec_future){

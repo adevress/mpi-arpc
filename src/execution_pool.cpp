@@ -218,8 +218,6 @@ public:
             try{
                int new_tag = id & (~0xffff);
                std::vector<char> serialized_result = int_to_function_map[callable_id]->deserialize_and_call(data);
-               //std::cout << "result !" <<
-               // std::string(serialized_result.data(), serialized_result.size())  << " " << serialized_result.size() << std::endl;
                io.send(rank, new_tag, serialized_result);
             }catch(std::exception & e){
                 std::cerr << "<exception> on rank " << io.get_comm().rank()
