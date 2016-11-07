@@ -4,3 +4,6 @@
 [submodule "cereal"]
 	path = deps/cereal
 	url = https://github.com/USCiLab/cereal.git
+[submodule "deps/hadoken"]
+	path = deps/hadoken
+	url = https://github.com/adevress/hadoken.git

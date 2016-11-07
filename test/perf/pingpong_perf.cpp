@@ -16,7 +16,6 @@ using namespace mpi::arpc;
 struct exec_context{
     exec_context() :
         iterations(1000),
-        n_parallel(1),
         elem_size(1),
         min_time(1000000),
         max_time(0),
@@ -29,13 +28,14 @@ struct exec_context{
 };
 
 
-inline vector_elems just_return(const vector_elems & args){
+inline vector_elems just_return(vector_elems && args){
     vector_elems res(args);
     return res;
 }
 
 
-void execute_ping_pong(exec_context & c, remote_function<vector_elems, vector_elems> & executor){
+template<typename Func>
+void execute_ping_pong(exec_context & c, Func & executor){
     std::size_t total = 0;
     std::size_t dest_node = 1;
 
@@ -51,15 +51,9 @@ void execute_ping_pong(exec_context & c, remote_function<vector_elems, vector_el
         for(std::size_t i = 0; i < c.iterations; i++){
             auto start = std::chrono::system_clock::now();
 
-            std::vector< std::future<vector_elems> > vec_future;
+            std::future<vector_elems> fut = executor(dest_node, std::move(elems));
 
-            for(std::size_t i =0; i < c.n_parallel; ++i){
-                vec_future.emplace_back( executor(dest_node, elems) );
-            }
-
-            for(auto & fut : vec_future){
-                total += fut.get().size();
-            }
+            total += fut.get().size();
 
            auto stop = std::chrono::system_clock::now();
            double time_us = double(std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count()) / 1000.0 ;
@@ -81,7 +75,7 @@ int main(int argc, char** argv)
     execution_pool_pthread service(&argc, &argv);
     mpi::mpi_comm comm;
 
-    remote_function<vector_elems, vector_elems> ping_pong(just_return);
+    remote_function<vector_elems, vector_elems&&> ping_pong(just_return);
     service.register_function(ping_pong);
 
 
@@ -114,6 +108,7 @@ int main(int argc, char** argv)
 
     comm.barrier();
 
+    return 0;
 }
 
 

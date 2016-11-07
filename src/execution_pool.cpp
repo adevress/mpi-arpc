@@ -160,7 +160,7 @@ private:
 
             {
                 std::unique_lock<std::mutex> lock(task_mutex);
-                task_cond.wait_for(lock, std::chrono::microseconds(50));
+                task_cond.wait_for(lock, std::chrono::microseconds(100));
             }
         }
     }

@@ -24,6 +24,9 @@
 
 #include "bits/remote_callable.hpp"
 
+
+struct arpc_unit_tests;
+
 namespace mpi {
 
 namespace arpc{
@@ -52,35 +55,33 @@ public:
     virtual ~remote_function(){};
 
 
-
-
-    inline result_type execute_local(Args... args){
-
-        std::vector<char> args_serialized = _callable->serialize(args... );
-        std::vector<char> res_serialized = _callable->deserialize_and_call(args_serialized);
-        return _callable->deserialize_result(res_serialized);
+    std::future<result_type> operator()(int rank, Args... args){
+        check_service_association();
+        return _execute_async(rank, std::forward<Args>(args)...);
     }
 
 
-    std::future<result_type> operator()(int rank, Args... args){
-        check_service_association();
+private:
+    remote_function(const remote_function &) = delete;
 
-        std::shared_ptr<internal::remote_callable<Ret, Args...> > callback_callable = _callable;
-        auto prom = std::make_shared<std::promise<result_type> >();
-        auto future_result = prom->get_future();
+    inline void check_service_association(){
+        if(_pool == nullptr){
+            throw std::runtime_error("no service associated to this remote_function");
+        }
+    }
+
+    std::future<result_type> _execute_async(int rank, Args... args){
+
 
 
         // if request is local to node, execute directly
         if(_pool->is_local(rank)){
-            typename internal::remote_callable<Ret, Args...>::type_tuple arg_tuple(args...);
-
-            std::async(std::launch::async, [prom, arg_tuple, callback_callable](){
-                result_type res = callback_callable->call_from_tuple(arg_tuple);
-                prom->set_value(res);
-            });
-
-            return future_result;
+            return _execute_async_local_serialize(std::forward<Args>(args)...);
         }
+
+        const std::shared_ptr<internal::remote_callable<Ret, Args...> > & callback_callable = _callable;
+        auto prom = std::make_shared<std::promise<result_type> >();
+        auto future_result = prom->get_future();
 
         std::vector<char> args_serialized = _callable->serialize(args...);
         _pool->send_request(rank, _callable_id, args_serialized, std::function<void (const std::vector<char> &)>(
@@ -94,21 +95,40 @@ public:
     }
 
 
-private:
-    remote_function(const remote_function &) = delete;
+    std::future<result_type> _execute_async_local(Args... args){
+        const std::shared_ptr<internal::remote_callable<Ret, Args...> > & callback_callable = _callable;
+
+        using type_tuple =  typename internal::remote_callable<Ret, Args...>::type_tuple;
+
+        std::shared_ptr<type_tuple> fwd_args_tuple(new type_tuple(std::forward<Args>(args)...));
+
+        return std::async(std::launch::deferred, [fwd_args_tuple, callback_callable](){
+            return callback_callable->call_from_tuple(*fwd_args_tuple);
+        });
+    }
+
+    inline std::future<result_type> _execute_async_local_serialize(Args... args){
+
+        std::vector<char> args_serialized = _callable->serialize(args... );
+        std::vector<char> res_serialized = _callable->deserialize_and_call(args_serialized);
+
+        std::promise<result_type> prom;
+        std::future<result_type> fut = prom.get_future();
+        prom.set_value(_callable->deserialize_result(res_serialized));
+        return fut;;
+    }
+
+
+
+
 
     std::shared_ptr<internal::remote_callable<Ret, Args...> > _callable;
-
     int _callable_id;
     execution_pool_pthread* _pool;
 
     friend class execution_pool_pthread;
+    friend struct ::arpc_unit_tests;
 
-    void check_service_association(){
-        if(_pool == nullptr){
-            throw std::runtime_error("no service associated to this remote_function");
-        }
-    }
 
 };
 

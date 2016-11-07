@@ -23,6 +23,26 @@ int print_args(const std::string & str0, const std::string & str1){
     return 42;
 }
 
+std::string hello_function(const std::string & str){
+        return std::string("hello world, ") + str + std::string(" !");
+}
+
+struct arpc_unit_tests{
+    static void call_remote_function_test(){
+        using namespace mpi::arpc;
+        execution_pool_pthread service(&argc, &argv);
+
+        remote_function<std::string, std::string> my_func(hello_function);
+
+
+        std::string result = my_func._execute_async_local_serialize(std::string("bob")).get();
+
+        BOOST_CHECK_EQUAL("hello world, bob !", result);
+        std::cout << "verify " << result << std::endl;
+    }
+
+};
+
 
 
 BOOST_AUTO_TEST_CASE( remote_callable_basic )
@@ -61,23 +81,9 @@ BOOST_AUTO_TEST_CASE( remote_callable_lambda )
 }
 
 
-std::string hello_function(const std::string & str){
-        return std::string("hello world, ") + str + std::string(" !");
-}
-
 
 BOOST_AUTO_TEST_CASE(  remote_function_test )
 {
-    using namespace mpi::arpc;
-
-    execution_pool_pthread service(&argc, &argv);
-
-    remote_function<std::string, std::string> my_func(hello_function);
-
-
-    std::string result = my_func.execute_local(std::string("bob"));
-
-    BOOST_CHECK_EQUAL("hello world, bob !", result);
-    std::cout << "verify " << result << std::endl;
+    arpc_unit_tests::call_remote_function_test();
 }
 

@@ -110,10 +110,7 @@ public:
         archiver(func_arg);
 
         std::string res = oss.str();
-        result.resize(res.size()+1);
-        std::copy_n(res.begin(), res.size()+1, result.begin());
-
-        return result;
+        return std::vector<char>(res.begin(), res.end());
     }
 
 
@@ -130,7 +127,7 @@ public:
 
     typedef list_args<Args...> args_type_list;
 
-    typedef typename std::tuple<Args...> type_tuple;
+    typedef typename std::tuple<typename std::remove_const<typename std::remove_reference<Args>::type>::type... > type_tuple;
 
 
     inline remote_callable() : _func() {}
@@ -175,8 +172,8 @@ public:
         return serialize_result(res_val);
     }
 
-    inline result_type call_from_tuple(const type_tuple & func_arg){
-        return invoke_function<result_type>(_func, func_arg);
+    inline result_type call_from_tuple(type_tuple & func_arg){
+        return invoke_function<result_type>(_func, std::move(func_arg));
     }
 
     inline result_type deserialize_result(const std::vector<char> & result_data){
