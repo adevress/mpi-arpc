@@ -44,6 +44,7 @@ class remote_function {
 public:
 
     typedef Ret result_type;
+    typedef internal::remote_callable<Ret, Args...> callable_type;
 
     remote_function(const std::function<Ret(Args...)> & function_object) :
         _callable(std::make_shared<internal::remote_callable<Ret, Args... > >(function_object)),
@@ -70,28 +71,21 @@ private:
         }
     }
 
-    std::future<result_type> _execute_async(int rank, Args... args){
-
-
+    std::future<result_type> _execute_async(int rank, Args&&... args){
 
         // if request is local to node, execute directly
         if(_pool->is_local(rank)){
             return _execute_async_local_serialize(std::forward<Args>(args)...);
+        }else{
+            std::vector<char> args_serialized = _callable->serialize(args...);
+            std::unique_ptr<internal::result_object> result_handler(new internal::result_handler<callable_type>(_callable.get()));
+
+            auto future_result = static_cast<internal::result_handler<callable_type>*>(result_handler.get())->get_future();
+
+
+            _pool->send_request(rank, _callable_id, args_serialized,  std::move(result_handler) );
+            return future_result;
         }
-
-        const std::shared_ptr<internal::remote_callable<Ret, Args...> > & callback_callable = _callable;
-        auto prom = std::make_shared<std::promise<result_type> >();
-        auto future_result = prom->get_future();
-
-        std::vector<char> args_serialized = _callable->serialize(args...);
-        _pool->send_request(rank, _callable_id, args_serialized, std::function<void (const std::vector<char> &)>(
-                                [prom, callback_callable] (const std::vector<char> & result ) {
-                                    //std::cout << "back on earth " << std::string(result.data(), result.size()) << " " << result.size() << std::endl;
-                                    result_type res = callback_callable->deserialize_result(result);
-                                    prom->set_value(res);
-                                })
-                            );
-        return future_result;
     }
 
 

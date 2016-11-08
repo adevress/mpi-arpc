@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <type_traits>
 #include <vector>
+#include <future>
 #include <sstream>
 
 #include <cstdint>
@@ -87,6 +88,8 @@ Ret invoke_function(F f, Tuple && t)
 class callable_object{
 public:
 
+
+
     inline callable_object(){};
     virtual ~callable_object(){};
 
@@ -94,7 +97,7 @@ public:
     /// function argument serializer
     ///
     template<typename... Args>
-    inline std::vector<char> serialize(Args... args){
+    inline std::vector<char> serialize(Args&&... args){
         typedef typename std::tuple<Args...> type_tuple;
 
         using namespace serializer;
@@ -127,8 +130,9 @@ public:
 
     typedef list_args<Args...> args_type_list;
 
-    typedef typename std::tuple<typename std::remove_const<typename std::remove_reference<Args>::type>::type... > type_tuple;
+    typedef typename std::tuple<typename std::remove_const<Args>::type... > type_tuple;
 
+    typedef typename std::tuple<typename std::remove_const<typename std::remove_reference<Args>::type>::type... > type_tuple_no_ref;
 
     inline remote_callable() : _func() {}
     inline remote_callable(const std::function<Ret(Args...)> & function) : _func(function) {}
@@ -138,17 +142,14 @@ public:
     std::vector<char> serialize_result(result_type arg){
         using namespace serializer;
 
-        std::vector<char> result;
-
         std::ostringstream oss;
         output_archiver archiver(oss);
 
         archiver(arg);
 
         std::string res = oss.str();
-        std::copy(res.begin(), res.end(), std::back_inserter(result));
 
-        return result;
+        return std::vector<char>(res.begin(), res.end());
     }
 
 
@@ -160,31 +161,29 @@ public:
         std::string input_buffer(arguments.data(), arguments.size());
         std::istringstream iss(input_buffer);
 
-        type_tuple func_arg;
+        type_tuple_no_ref func_arg;
 
         input_archiver archiver(iss);
 
         archiver(func_arg);
 
 
-        result_type res_val = call_from_tuple(func_arg);
+        result_type res_val = call_from_tuple(std::move(func_arg));
 
         return serialize_result(res_val);
     }
 
-    inline result_type call_from_tuple(type_tuple & func_arg){
-        return invoke_function<result_type>(_func, std::move(func_arg));
+    inline result_type call_from_tuple(type_tuple_no_ref && func_arg){
+        return invoke_function<result_type>(_func, std::forward<type_tuple_no_ref>(func_arg));
     }
 
     inline result_type deserialize_result(const std::vector<char> & result_data){
         using namespace serializer;
 
         result_type result;
-        std::string buffer;
-        std::copy(result_data.begin(), result_data.end(), std::back_inserter(buffer));
+        std::string buffer(result_data.data(), result_data.size());
 
         std::istringstream iss(buffer);
-
 
         input_archiver archiver(iss);
 
@@ -198,6 +197,45 @@ private:
 
 };
 
+
+///
+/// \brief request result handler
+///
+class result_object{
+public:
+    virtual void set_result(const std::vector<char> & result) =0;
+};
+
+
+///
+/// \brief  specialization for a request result handler
+///
+template<typename RemoteCallable>
+class result_handler : public result_object{
+public:
+    typedef RemoteCallable remote_callable;
+    typedef typename RemoteCallable::result_type result_type;
+
+    result_handler(remote_callable* callable) :
+        _prom(),
+        _callable(callable)
+    {
+
+    }
+
+    void set_result(const std::vector<char> & result) override{
+        result_type res = _callable->deserialize_result(result);
+        _prom.set_value(res);
+    }
+
+    std::future<result_type> get_future(){
+        return _prom.get_future();
+    }
+
+private:
+    std::promise<result_type> _prom;
+    remote_callable* _callable;
+};
 
 
 

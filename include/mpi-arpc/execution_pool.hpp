@@ -54,7 +54,7 @@ public:
     bool is_local(int rank);
 
     void send_request(int rank, int callable_id, const std::vector<char> & args_serialized,
-                      const std::function<void (const std::vector<char> &)> & callback);
+                       std::unique_ptr<internal::result_object> && result_handler);
 private:
     std::unique_ptr<pimpl> d_ptr;
 

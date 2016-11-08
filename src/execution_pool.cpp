@@ -40,18 +40,18 @@ constexpr int tag_range2_begin = tag_range1_end;
 constexpr int tag_range2_end = tag_range1_end + std::numeric_limits<int>::max()/4;
 
 
-template<typename Fun>
+template<typename ResultHandler>
 class request_stack{
 public:
 
-    int register_req(const Fun & req){
+    int register_req(ResultHandler && req){
         std::lock_guard<std::mutex> lock(mutex_request);
 
-        requests.push_back(req);
+        requests.emplace_back(std::move(req));
         return tag_range2_begin + requests.size() -1;
     }
 
-    Fun & get_request_from_id(int id){
+    ResultHandler & get_request_from_id(int id){
         assert(id >= tag_range2_begin);
 
         std::lock_guard<std::mutex> lock(mutex_request);
@@ -80,7 +80,7 @@ public:
     }
 
 private:
-    std::vector<Fun> requests;
+    std::vector<ResultHandler> requests;
     std::mutex mutex_request;
 };
 
@@ -212,7 +212,7 @@ public:
         //std::cout << "dest from " << rank << " callable_id " << callable_id << " request_id " << request_id <<std::endl;
 
         if(callable_id == 0){ // response
-            req_stack.get_request_from_id(request_id)(data);
+            req_stack.get_request_from_id(request_id)->set_result(data);
             req_stack.pop_request(request_id);
         }else{
             try{
@@ -235,7 +235,7 @@ public:
     std::unordered_map<std::shared_ptr<internal::callable_object>, int > function_to_in_map;
 
 
-    request_stack<std::function< void(const std::vector<char> &)> > req_stack;
+    request_stack<std::unique_ptr<internal::result_object> > req_stack;
 
 
     mpi::mpi_scope_env env;
@@ -276,9 +276,9 @@ bool execution_pool_pthread::is_local(int rank){
 }
 
 void execution_pool_pthread::send_request(int rank, int callable_id, const std::vector<char> & args_serialized,
-                  const std::function<void (const std::vector<char> &)> & callback){
+                  std::unique_ptr<internal::result_object> && result_handler){
 
-    int req_id = d_ptr->req_stack.register_req(callback);
+    int req_id = d_ptr->req_stack.register_req(std::move(result_handler));
 
     //std::cout << "source from " << rank << " callable_id " << callable_id << " request_id " << req_id <<std::endl;
 
