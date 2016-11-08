@@ -26,11 +26,10 @@
 
 #include <mpi-cpp/mpi.hpp>
 
-#include <mpi-arpc/execution_pool.hpp>
+#include <arpc/execution_pool_mpi.hpp>
 
-namespace mpi {
+namespace arpc {
 
-namespace arpc{
 
 namespace {
 
@@ -133,7 +132,7 @@ public:
         comm.barrier();
     }
 
-    inline mpi_comm & get_comm(){
+    inline ::mpi::mpi_comm & get_comm(){
         return comm;
     }
 
@@ -142,7 +141,7 @@ private:
 
     void run(){
         while(!finished){
-            mpi::mpi_comm::message_handle handle;
+            ::mpi::mpi_comm::message_handle handle;
 
             {
                 std::lock_guard<std::mutex> lock(task_mutex);
@@ -153,7 +152,7 @@ private:
             }
 
             if(handle.is_valid()){
-                mpi::mpi_future<std::vector<char> > data = comm.recv_async< std::vector<char> >(handle);
+                ::mpi::mpi_future<std::vector<char> > data = comm.recv_async< std::vector<char> >(handle);
                 recv_task(handle.rank(), handle.tag(), data.get());
                 continue;
             }
@@ -168,7 +167,7 @@ private:
 
     void poll(){
         while(!finished){
-            mpi::mpi_comm::message_handle handle = comm.probe(mpi::any_source, mpi::any_tag, 1);
+            ::mpi::mpi_comm::message_handle handle = comm.probe(::mpi::any_source, ::mpi::any_tag, 1);
             if(handle.is_valid()){
                 std::lock_guard<std::mutex> lock(task_mutex);
                 handles.emplace_back(std::move(handle));
@@ -180,7 +179,7 @@ private:
 
     std::mutex task_mutex;
     std::condition_variable task_cond;
-    std::vector<mpi::mpi_comm::message_handle> handles;
+    std::vector<::mpi::mpi_comm::message_handle> handles;
 
 
     std::thread poll_thread;
@@ -190,7 +189,7 @@ private:
 
     bool finished;
 
-    mpi::mpi_comm comm;
+    ::mpi::mpi_comm comm;
 };
 
 
@@ -238,7 +237,7 @@ public:
     request_stack<std::unique_ptr<internal::result_object> > req_stack;
 
 
-    mpi::mpi_scope_env env;
+    ::mpi::mpi_scope_env env;
     service_io io;
     std::size_t n;
 };
@@ -291,10 +290,9 @@ void execution_pool_pthread::send_request(int rank, int callable_id, const std::
 
 
 
+
+
 }; // arpc
-
-
-}; // mpi
 
 
 

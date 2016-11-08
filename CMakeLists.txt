@@ -1,4 +1,4 @@
-project(mpi-arpc)
+project(arpc)
 cmake_minimum_required(VERSION 2.8)
 
 enable_testing()
@@ -18,15 +18,16 @@ include(BlueGenePortability)
 include(DefineInstallationPaths)
 include(ReleaseDebugAutoFlags)
 
-find_package(Threads)
+find_package(Threads REQUIRED)
 find_package(Boost 1.41.0 REQUIRED system thread)
+
 find_package(MPI)
 
 add_definitions( -std=c++11 )
 
 
-file(GLOB MPI_CPP_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/mpi-arpc/*)
-file(GLOB MPI_CPP_HEADERS_1 ${CMAKE_CURRENT_SOURCE_DIR}/include/mpi-arpc/*/*)
+file(GLOB MPI_CPP_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/arpc/*)
+file(GLOB MPI_CPP_HEADERS_1 ${CMAKE_CURRENT_SOURCE_DIR}/include/arpc/*/*)
 
 
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/include/ )

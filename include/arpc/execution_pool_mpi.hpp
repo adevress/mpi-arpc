@@ -28,9 +28,8 @@
 
 #include "bits/remote_callable.hpp"
 
-namespace mpi {
+namespace arpc {
 
-namespace arpc{
 
 ///
 /// \brief The execution_pool_pthread class
@@ -40,9 +39,23 @@ namespace arpc{
 class execution_pool_pthread{
     class pimpl;
 public:
+    ///
+    /// \brief construct an execution service for arpc with the MPI backend
+    /// \param argc
+    /// \param argv
+    ///
     execution_pool_pthread(int* argc, char*** argv);
+
+    ///
+    /// \brief ~execution_pool_pthread
+    ///
     virtual ~execution_pool_pthread();
 
+    ///
+    /// \brief register a new remote_function in this execution service
+    ///
+    /// A registered function can call and be called from other node
+    ///
     template < typename Fun>
     inline void register_function(Fun & fun){
         using namespace std;
@@ -51,8 +64,14 @@ public:
         fun._pool = this;
     }
 
-    bool is_local(int rank);
+    ///
+    /// \param node_id
+    /// return true if node_id is the one of the local node
+    ///
+    bool is_local(int node_id);
 
+    ////
+    ///  internal
     void send_request(int rank, int callable_id, const std::vector<char> & args_serialized,
                        std::unique_ptr<internal::result_object> && result_handler);
 private:
@@ -68,10 +87,9 @@ private:
 
 
 
+
+
 }; // arpc
-
-
-}; // mpi
 
 
 #endif

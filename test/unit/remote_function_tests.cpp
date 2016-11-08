@@ -5,7 +5,7 @@
 
 
 #include <mpi-cpp/mpi.hpp>
-#include <mpi-arpc/mpi-arpc.hpp>
+#include <arpc/arpc.hpp>
 
 
 #include <iostream>
@@ -46,9 +46,9 @@ int hello_function(const std::string & str){
 BOOST_AUTO_TEST_CASE( remote_function_local )
 {
     std::cout << "start local function test" << std::endl;
-    using namespace mpi::arpc;
+    using namespace arpc;
 
-    mpi::mpi_comm comm;
+    ::mpi::mpi_comm comm;
     execution_pool_pthread pool(&argc, &argv);
     comm.barrier();
 
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE( remote_function_local )
 BOOST_AUTO_TEST_CASE( remote_function_remote )
 {
     std::cout << "start remote function test" << std::endl;
-    using namespace mpi::arpc;
+    using namespace arpc;
 
     mpi::mpi_comm comm;
     execution_pool_pthread pool(&argc, &argv);

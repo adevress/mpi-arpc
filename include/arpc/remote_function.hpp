@@ -27,11 +27,10 @@
 
 struct arpc_unit_tests;
 
-namespace mpi {
 
 namespace arpc{
 
-class execution_pool_pthread;
+class execution_pool_pthread; 
 
 ///
 /// \brief remote_function
@@ -132,7 +131,6 @@ private:
 }; // arpc
 
 
-}; // mpi
 
 
 #endif // REMOTE_FUNCTION_HPP

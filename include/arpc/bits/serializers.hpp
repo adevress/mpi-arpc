@@ -24,9 +24,11 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/tuple.hpp>
 #include <cereal/types/map.hpp>
+#include <cereal/types/set.hpp>
+#include <cereal/types/array.hpp>
 
 
-namespace mpi {
+
 
 namespace arpc {
 
@@ -49,7 +51,6 @@ namespace serializer{
 
 } // arpc
 
-} // mpi
 
 
 

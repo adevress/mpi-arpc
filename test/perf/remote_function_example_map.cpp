@@ -1,6 +1,6 @@
 
 #include <mpi-cpp/mpi.hpp>
-#include <mpi-arpc/mpi-arpc.hpp>
+#include <arpc/arpc.hpp>
 
 
 #include <boost/lexical_cast.hpp>
@@ -29,7 +29,7 @@ inline const std::map<std::string, std::string>  fill_map(const std::map<std::st
 
 int main(int argc, char** argv)
 {
-   using namespace mpi::arpc;
+   using namespace arpc;
 
    execution_pool_pthread service(&argc, &argv);
 

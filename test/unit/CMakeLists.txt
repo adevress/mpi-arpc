@@ -28,7 +28,7 @@ add_test(NAME serialization_tests COMMAND ${TESTS_PREFIX} ${TESTS_PREFIX_ARGS} $
 LIST(APPEND remote_callable_src "remote_callable_tests.cpp")
 
 add_executable(remote_callable_bin ${remote_callable_src})
-target_link_libraries(remote_callable_bin mpi_arpc ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
+target_link_libraries(remote_callable_bin arpc_mpi ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
 
 add_test(NAME remote_callable COMMAND ${TESTS_PREFIX} ${TESTS_PREFIX_ARGS} ${CMAKE_CURRENT_BINARY_DIR}/remote_callable_bin)
 
@@ -37,7 +37,7 @@ add_test(NAME remote_callable COMMAND ${TESTS_PREFIX} ${TESTS_PREFIX_ARGS} ${CMA
 LIST(APPEND remote_function_src "remote_function_tests.cpp")
 
 add_executable(remote_function_bin ${remote_function_src})
-target_link_libraries(remote_function_bin mpi_arpc ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
+target_link_libraries(remote_function_bin arpc_mpi ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES} ${MPI_LIBRARIES})
 
 add_test(NAME remote_function COMMAND ${TESTS_PREFIX} ${TESTS_PREFIX_ARGS} ${CMAKE_CURRENT_BINARY_DIR}/remote_function_bin)
 

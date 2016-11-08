@@ -1,4 +1,4 @@
-#include <mpi-arpc/mpi-arpc.hpp>
+#include <arpc/arpc.hpp>
 
 
 #include <boost/lexical_cast.hpp>
@@ -17,7 +17,7 @@ inline std::size_t  dummy_add(const std::size_t v1, const std::size_t v2){
 
 int main(int argc, char** argv)
 {
-    using namespace mpi::arpc::internal;
+    using namespace arpc::internal;
 
     std::size_t n = 50000;
     if(argc == 2){

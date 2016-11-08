@@ -4,7 +4,7 @@
 #include <boost/test/unit_test.hpp>
 
 
-#include <mpi-arpc/mpi-arpc.hpp>
+#include <arpc/arpc.hpp>
 
 
 #include <iostream>
@@ -29,7 +29,7 @@ std::string hello_function(const std::string & str){
 
 struct arpc_unit_tests{
     static void call_remote_function_test(){
-        using namespace mpi::arpc;
+        using namespace arpc;
         execution_pool_pthread service(&argc, &argv);
 
         remote_function<std::string, std::string> my_func(hello_function);
@@ -47,7 +47,7 @@ struct arpc_unit_tests{
 
 BOOST_AUTO_TEST_CASE( remote_callable_basic )
 {
-    using namespace mpi::arpc::internal;
+    using namespace arpc::internal;
 
     remote_callable<int, std::string, std::string> callable(print_args);
 
@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE( remote_callable_basic )
 
 BOOST_AUTO_TEST_CASE( remote_callable_lambda )
 {
-    using namespace mpi::arpc::internal;
+    using namespace arpc::internal;
     const std::string extern_msg = "bob! ";
 
     remote_callable<int, std::string, std::string> callable([&](const std::string & str1, const std::string & str2) {

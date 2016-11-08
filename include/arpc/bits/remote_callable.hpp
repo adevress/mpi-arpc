@@ -31,7 +31,6 @@
 
 #include "serializers.hpp"
 
-namespace mpi {
 
 namespace arpc {
 
@@ -244,8 +243,5 @@ private:
 
 
 } // arpc
-
-} // mpi
-
 
 #endif

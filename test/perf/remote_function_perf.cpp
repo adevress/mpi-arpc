@@ -1,5 +1,5 @@
 #include <mpi-cpp/mpi.hpp>
-#include <mpi-arpc/mpi-arpc.hpp>
+#include <arpc/arpc.hpp>
 
 
 #include <boost/lexical_cast.hpp>
@@ -20,7 +20,7 @@ inline int  dummy_add(const int v1, const int v2){
 
 int main(int argc, char** argv)
 {
-    using namespace mpi::arpc;
+    using namespace arpc;
 
     std::size_t n = 10000;
     if(argc >= 2){
