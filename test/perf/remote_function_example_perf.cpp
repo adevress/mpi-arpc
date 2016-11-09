@@ -25,7 +25,7 @@ int main(int argc, char** argv)
 {
    using namespace arpc;
 
-   execution_pool_pthread service(&argc, &argv);
+   exec_service_mpi service(&argc, &argv);
 
    remote_function<int, int, int> addition(dummy_add);
    service.register_function(addition);

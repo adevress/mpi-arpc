@@ -30,7 +30,7 @@ struct arpc_unit_tests;
 
 namespace arpc{
 
-class execution_pool_pthread; 
+class exec_service_mpi; 
 
 ///
 /// \brief remote_function
@@ -117,9 +117,9 @@ private:
 
     std::shared_ptr<internal::remote_callable<Ret, Args...> > _callable;
     int _callable_id;
-    execution_pool_pthread* _pool;
+    exec_service_mpi* _pool;
 
-    friend class execution_pool_pthread;
+    friend class exec_service_mpi;
     friend struct ::arpc_unit_tests;
 
 

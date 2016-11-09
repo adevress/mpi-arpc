@@ -72,7 +72,7 @@ int main(int argc, char** argv)
 
     std::size_t max_elem_size = 1024;
 
-    execution_pool_pthread service(&argc, &argv);
+    exec_service_mpi service(&argc, &argv);
     mpi::mpi_comm comm;
 
     remote_function<vector_elems, vector_elems&&> ping_pong(just_return);

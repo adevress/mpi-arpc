@@ -31,7 +31,7 @@ int main(int argc, char** argv)
 {
    using namespace arpc;
 
-   execution_pool_pthread service(&argc, &argv);
+   exec_service_mpi service(&argc, &argv);
 
    remote_function<std::map<std::string, std::string>, std::map<std::string, std::string> > fill_map_function(fill_map);
    service.register_function(fill_map_function);

@@ -30,7 +30,7 @@ std::string hello_function(const std::string & str){
 struct arpc_unit_tests{
     static void call_remote_function_test(){
         using namespace arpc;
-        execution_pool_pthread service(&argc, &argv);
+        exec_service_mpi service(&argc, &argv);
 
         remote_function<std::string, std::string> my_func(hello_function);
 

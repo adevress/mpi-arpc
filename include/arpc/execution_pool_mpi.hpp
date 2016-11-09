@@ -32,11 +32,11 @@ namespace arpc {
 
 
 ///
-/// \brief The execution_pool_pthread class
+/// \brief The exec_service_mpi class
 ///
 ///  main handle for mpi-arpc asynchronous remote execution
 ///
-class execution_pool_pthread{
+class exec_service_mpi{
     class pimpl;
 public:
     ///
@@ -44,12 +44,12 @@ public:
     /// \param argc
     /// \param argv
     ///
-    execution_pool_pthread(int* argc, char*** argv);
+    exec_service_mpi(int* argc, char*** argv);
 
     ///
-    /// \brief ~execution_pool_pthread
+    /// \brief ~exec_service_mpi
     ///
-    virtual ~execution_pool_pthread();
+    virtual ~exec_service_mpi();
 
     ///
     /// \brief register a new remote_function in this execution service
@@ -77,7 +77,7 @@ public:
 private:
     std::unique_ptr<pimpl> d_ptr;
 
-    execution_pool_pthread(const execution_pool_pthread &) = delete;
+    exec_service_mpi(const exec_service_mpi &) = delete;
 
     int register_function_internal(std::shared_ptr<internal::callable_object>  callable);
 

@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE( remote_function_local )
     using namespace arpc;
 
     ::mpi::mpi_comm comm;
-    execution_pool_pthread pool(&argc, &argv);
+    exec_service_mpi pool(&argc, &argv);
     comm.barrier();
 
     // register the function
@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE( remote_function_remote )
     using namespace arpc;
 
     mpi::mpi_comm comm;
-    execution_pool_pthread pool(&argc, &argv);
+    exec_service_mpi pool(&argc, &argv);
 
     if(comm.size() < 2){
         std::cout << "skip this test, requires at least two nodes" << std::endl;

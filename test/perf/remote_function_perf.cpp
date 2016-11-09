@@ -36,7 +36,7 @@ int main(int argc, char** argv)
 
     std::size_t orig1=0, orig2=1;
 
-    execution_pool_pthread service(&argc, &argv);
+    exec_service_mpi service(&argc, &argv);
 
     remote_function<int, int, int> addition(dummy_add);
     service.register_function(addition);

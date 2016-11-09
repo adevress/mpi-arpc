@@ -167,12 +167,15 @@ private:
 
     void poll(){
         while(!finished){
-            ::mpi::mpi_comm::message_handle handle = comm.probe(::mpi::any_source, ::mpi::any_tag, 1);
+            ::mpi::mpi_comm::message_handle handle = comm.probe(::mpi::any_source, ::mpi::any_tag);
+			std::this_thread::yield();
             if(handle.is_valid()){
                 std::lock_guard<std::mutex> lock(task_mutex);
                 handles.emplace_back(std::move(handle));
                 task_cond.notify_one();
-            }
+            }else{
+				std::this_thread::yield();
+			}
         }
     }
 
@@ -193,7 +196,7 @@ private:
 };
 
 
-class execution_pool_pthread::pimpl {
+class exec_service_mpi::pimpl {
 public:
     pimpl(int* argc, char*** argv) :
         env(argc, argv),
@@ -243,12 +246,12 @@ public:
 };
 
 
-execution_pool_pthread::execution_pool_pthread(int* argc, char*** argv): d_ptr(new pimpl(argc, argv)) {}
+exec_service_mpi::exec_service_mpi(int* argc, char*** argv): d_ptr(new pimpl(argc, argv)) {}
 
-execution_pool_pthread::~execution_pool_pthread() {}
+exec_service_mpi::~exec_service_mpi() {}
 
 
-int execution_pool_pthread::register_function_internal(std::shared_ptr<internal::callable_object> callable){
+int exec_service_mpi::register_function_internal(std::shared_ptr<internal::callable_object> callable){
     std::size_t id = d_ptr->n +1;
 
     {
@@ -270,11 +273,11 @@ int execution_pool_pthread::register_function_internal(std::shared_ptr<internal:
 }
 
 
-bool execution_pool_pthread::is_local(int rank){
+bool exec_service_mpi::is_local(int rank){
     return d_ptr->io.get_comm().rank() == rank;
 }
 
-void execution_pool_pthread::send_request(int rank, int callable_id, const std::vector<char> & args_serialized,
+void exec_service_mpi::send_request(int rank, int callable_id, const std::vector<char> & args_serialized,
                   std::unique_ptr<internal::result_object> && result_handler){
 
     int req_id = d_ptr->req_stack.register_req(std::move(result_handler));
