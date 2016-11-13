@@ -11,6 +11,7 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <algorithm>
 
 
 int argc = boost::unit_test::framework::master_test_suite().argc;
@@ -91,6 +92,90 @@ BOOST_AUTO_TEST_CASE( remote_function_remote )
 
 
 }
+
+
+int hello_rank(const std::string & str, int value){
+    mpi::mpi_comm comm;
+    std::cout << " " << str << " on " << comm.rank() << " with "<< value << std::endl;
+    return comm.rank() + value;
+}
+
+
+
+BOOST_AUTO_TEST_CASE( remote_function_multi_cast )
+{
+    std::cout << "multicast remote function test" << std::endl;
+    using namespace arpc;
+
+    mpi::mpi_comm comm;
+    exec_service_mpi pool(&argc, &argv);
+
+    if(comm.size() < 2){
+        std::cout << "skip this test, requires at least two nodes" << std::endl;
+        return;
+    }
+
+    // register the function
+    remote_function<int, std::string, int> hello(hello_rank);
+    pool.register_function(hello);
+
+    // asynchronous normal execution master -> slave. all gatherv pattern
+    if(comm.is_master()){
+        std::vector<int> nodes;
+        std::future<std::vector<int>> futures;
+
+        for(int i =0; i < comm.size(); ++i){
+            nodes.push_back(i);
+        }
+
+        futures = hello(nodes, "hello world ", 0);
+
+        auto res = futures.get();
+        BOOST_CHECK_EQUAL(res.size(), comm.size());
+
+        std::sort(res.begin(), res.end());
+        for(std::size_t i =0; i < std::size_t(comm.size()); ++i){
+            BOOST_CHECK_EQUAL(std::size_t(res[i]), i);
+        }
+
+    }
+
+     // execute on zero node
+     if(comm.is_master()){
+         std::vector<int> nodes;
+         std::future<std::vector<int>> futures;
+         futures = hello(nodes, "hello world ", 0);
+
+         auto res = futures.get();
+         BOOST_CHECK_EQUAL(res.size(), 0);
+     }
+
+
+     // execute everywhere, all_to_allv style
+     {
+         std::vector<int> nodes;
+         std::future<std::vector<int>> futures;
+         for(int i =0; i < comm.size(); ++i){
+             nodes.push_back(i);
+         }
+
+         futures = hello(nodes, "hello world ", comm.rank()*10);
+
+         auto res = futures.get();
+         BOOST_CHECK_EQUAL(res.size(), comm.size());
+
+         std::sort(res.begin(), res.end());
+         for(std::size_t i =0; i < std::size_t(comm.size()); ++i){
+             BOOST_CHECK_EQUAL(std::size_t(res[i]), i+ comm.rank()*10);
+         }
+
+     }
+
+    comm.barrier();
+}
+
+
+
 
 
 

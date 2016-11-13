@@ -70,7 +70,7 @@ void execute_ping_pong(exec_context & c, Func & executor){
 int main(int argc, char** argv)
 {
 
-    std::size_t max_elem_size = 1024;
+    std::size_t max_elem_size = 65635;
 
     exec_service_mpi service(&argc, &argv);
     mpi::mpi_comm comm;

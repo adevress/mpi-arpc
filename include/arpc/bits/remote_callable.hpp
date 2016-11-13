@@ -202,39 +202,13 @@ private:
 ///
 class result_object{
 public:
-    virtual void set_result(const std::vector<char> & result) =0;
+
+    virtual ~result_object() {}
+    virtual bool add_result(const std::vector<char> & result) =0;
+
 };
 
 
-///
-/// \brief  specialization for a request result handler
-///
-template<typename RemoteCallable>
-class result_handler : public result_object{
-public:
-    typedef RemoteCallable remote_callable;
-    typedef typename RemoteCallable::result_type result_type;
-
-    result_handler(remote_callable* callable) :
-        _prom(),
-        _callable(callable)
-    {
-
-    }
-
-    void set_result(const std::vector<char> & result) override{
-        result_type res = _callable->deserialize_result(result);
-        _prom.set_value(res);
-    }
-
-    std::future<result_type> get_future(){
-        return _prom.get_future();
-    }
-
-private:
-    std::promise<result_type> _prom;
-    remote_callable* _callable;
-};
 
 
 

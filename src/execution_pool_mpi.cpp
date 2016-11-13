@@ -43,21 +43,21 @@ template<typename ResultHandler>
 class request_stack{
 public:
 
-    int register_req(ResultHandler && req){
+    int register_req(std::unique_ptr<ResultHandler> && req){
         std::lock_guard<std::mutex> lock(mutex_request);
 
         requests.emplace_back(std::move(req));
         return tag_range2_begin + requests.size() -1;
     }
 
-    ResultHandler & get_request_from_id(int id){
+    ResultHandler& get_request_from_id(int id){
         assert(id >= tag_range2_begin);
 
         std::lock_guard<std::mutex> lock(mutex_request);
         const size_t offset = id - tag_range2_begin;
         assert((offset)  < requests.size());
         assert(requests[offset] != nullptr);
-        return requests[offset];
+        return *requests[offset];
     }
 
     void pop_request(int id){
@@ -69,17 +69,17 @@ public:
         assert((offset)  < requests.size());
 
         // invalidate the request
-        requests[offset] = nullptr;
+        requests[offset].reset();
 
         // pop every last invalid request in stack mode
-        while(requests.size() > 0 && requests.back() == nullptr){
+        while(requests.size() > 0 && requests.back().get() == nullptr){
             requests.pop_back();
         }
 
     }
 
 private:
-    std::vector<ResultHandler> requests;
+    std::vector<typename std::unique_ptr<ResultHandler>> requests;
     std::mutex mutex_request;
 };
 
@@ -128,6 +128,19 @@ public:
         comm.send(data, rank, tag);
     }
 
+    inline void send_bulk(std::vector<int> node_list, int tag, const std::vector<char> & data){
+        std::vector<mpi::mpi_future<std::vector<char>> > futures;
+        futures.reserve(node_list.size());
+
+        for(auto & node : node_list){
+            futures.emplace_back(std::move(comm.send_async(data, node, tag)));
+        }
+
+        for(auto & f : futures){
+            f.wait();
+        }
+    }
+
     inline void barrier(){
         comm.barrier();
     }
@@ -167,15 +180,12 @@ private:
 
     void poll(){
         while(!finished){
-            ::mpi::mpi_comm::message_handle handle = comm.probe(::mpi::any_source, ::mpi::any_tag);
-			std::this_thread::yield();
+            ::mpi::mpi_comm::message_handle handle = comm.probe(::mpi::any_source, ::mpi::any_tag, 1);
             if(handle.is_valid()){
                 std::lock_guard<std::mutex> lock(task_mutex);
                 handles.emplace_back(std::move(handle));
                 task_cond.notify_one();
-            }else{
-				std::this_thread::yield();
-			}
+            }
         }
     }
 
@@ -214,8 +224,11 @@ public:
         //std::cout << "dest from " << rank << " callable_id " << callable_id << " request_id " << request_id <<std::endl;
 
         if(callable_id == 0){ // response
-            req_stack.get_request_from_id(request_id)->set_result(data);
-            req_stack.pop_request(request_id);
+            internal::result_object& req = req_stack.get_request_from_id(request_id);
+            const bool completed = req.add_result(data);
+             if(completed){
+                req_stack.pop_request(request_id);
+            }
         }else{
             try{
                int new_tag = id & (~0xffff);
@@ -237,7 +250,7 @@ public:
     std::unordered_map<std::shared_ptr<internal::callable_object>, int > function_to_in_map;
 
 
-    request_stack<std::unique_ptr<internal::result_object> > req_stack;
+    request_stack<internal::result_object> req_stack;
 
 
     ::mpi::mpi_scope_env env;
@@ -289,6 +302,17 @@ void exec_service_mpi::send_request(int rank, int callable_id, const std::vector
     tag |= ((req_id - tag_range2_begin) << 16);
 
     d_ptr->io.send(rank, tag, args_serialized);
+}
+
+void exec_service_mpi::send_request(std::vector<int> node_list, int callable_id, const std::vector<char> &args_serialized, std::unique_ptr<internal::result_object> &&result_handler){
+    int req_id = d_ptr->req_stack.register_req(std::move(result_handler));
+
+    assert(callable_id < 0xffff);
+    int tag = (callable_id & 0xffff);
+    tag |= ((req_id - tag_range2_begin) << 16);
+
+    d_ptr->io.send_bulk(node_list, tag, args_serialized);
+
 }
 
 
