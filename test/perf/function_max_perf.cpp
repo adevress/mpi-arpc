@@ -54,7 +54,7 @@ int main(int argc, char** argv)
             futures_vector all_vec;
             all_vec.reserve(n);
             for(decltype(n) i = 0; i < n; i++){
-               all_vec.emplace_back(  std::async(std::launch::deferred, [v1, v2]{ return dummy_add(v1, v2); } ));
+               all_vec.emplace_back(  std::async(std::launch::async, [v1, v2]{ return dummy_add(v1, v2); } ));
                v1 += 10;
                v2 += 20;
             }

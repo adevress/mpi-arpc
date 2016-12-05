@@ -23,6 +23,8 @@
 #include <chrono>
 #include <functional>
 #include <cstddef>
+#include <cstdint>
+#include <cstring>
 
 #include <mpi-cpp/mpi.hpp>
 
@@ -32,6 +34,56 @@ namespace arpc {
 
 
 namespace {
+
+const std::uint8_t message_type_request = 0x01;
+const std::uint8_t message_type_answer = 0x02;
+const std::uint8_t message_type_exception = 0x03;
+
+
+struct message_header{
+    message_header() :
+        request_id(0),
+        identifier_token(0),
+        message_type(0),
+        source(-1){}
+
+    std::uint64_t request_id;
+    std::uint32_t identifier_token;
+    std::uint8_t message_type;
+
+    // source is not transmitted, but added by the MPI layer
+    int source;
+
+    std::vector<char> serialize(){
+        std::vector<char> res;
+        res.resize(serialized_data_size);
+        char * pbuffer = res.data();
+        *((decltype(request_id)*) pbuffer) = request_id;
+        pbuffer+= sizeof(request_id);
+        *((decltype(identifier_token)*) pbuffer) = identifier_token;
+        pbuffer += sizeof(identifier_token);
+        *((decltype(message_type)*) pbuffer) = message_type;
+        return res;
+    }
+
+    void deserialize(const std::vector<char> & vec){
+        if(vec.size() != serialized_data_size){
+            throw std::logic_error("Invalid header message, length inconsistency");
+        }
+
+        char * pbuffer = const_cast<char*>(vec.data());
+        request_id = *((decltype(request_id)*) pbuffer);
+        pbuffer+= sizeof(request_id);
+        identifier_token = *((decltype(identifier_token)*) pbuffer);
+        pbuffer += sizeof(identifier_token);
+        message_type = *((decltype(message_type)*) pbuffer);
+    }
+
+    static constexpr std::size_t serialized_data_size =
+            sizeof(decltype(request_id)) + sizeof(decltype(identifier_token))
+            + sizeof(decltype(message_type));
+
+};
 
 constexpr int tag_range1_begin = 2;
 constexpr int tag_range1_end = tag_range1_begin+ std::numeric_limits<int>::max()/4;
@@ -89,7 +141,10 @@ private:
 
 class service_io{
 public:
-    service_io(MPI_Comm my_comm, const std::function<void (int, int, const std::vector<char> & )> & my_recv_task) :
+    using vector_req_status = std::vector<mpi::mpi_future<std::vector<char>> >;
+    using req_status = mpi::mpi_future<std::vector<char>>;
+
+    service_io(MPI_Comm my_comm, const std::function<void (int, message_header &, const std::vector<char> & )> & my_recv_task) :
         poll_thread(),
         executers(),
         recv_task(my_recv_task),
@@ -125,24 +180,31 @@ public:
     }
 
     inline void send(int rank, int tag, const std::vector<char> & data){
-        comm.send(data, rank, tag);
+        return comm.send(data, rank, tag);
     }
 
-    inline void send_bulk(std::vector<int> node_list, int tag, const std::vector<char> & data){
-        std::vector<mpi::mpi_future<std::vector<char>> > futures;
+    inline req_status send_async(int rank, int tag, const std::vector<char> & data){
+        return comm.send_async(data, rank, tag);
+    }
+
+
+    inline vector_req_status send_bulk(const std::vector<int> & node_list, int tag, const std::vector<char> & data){
+        vector_req_status futures;
         futures.reserve(node_list.size());
 
         for(auto & node : node_list){
             futures.emplace_back(std::move(comm.send_async(data, node, tag)));
         }
 
-        for(auto & f : futures){
-            f.wait();
-        }
+        return futures;
     }
 
     inline void barrier(){
         comm.barrier();
+    }
+
+    inline int get_rank() const{
+        return comm.rank();
     }
 
     inline ::mpi::mpi_comm & get_comm(){
@@ -154,7 +216,7 @@ private:
 
     void run(){
         while(!finished){
-            ::mpi::mpi_comm::message_handle handle;
+            message_header handle;
 
             {
                 std::lock_guard<std::mutex> lock(task_mutex);
@@ -164,9 +226,12 @@ private:
                 }
             }
 
-            if(handle.is_valid()){
-                ::mpi::mpi_future<std::vector<char> > data = comm.recv_async< std::vector<char> >(handle);
-                recv_task(handle.rank(), handle.tag(), data.get());
+            if(handle.identifier_token != 0){
+                ::mpi::mpi_comm::message_handle data_handle = comm.probe(handle.source, 2);
+                if(data_handle.is_valid()){
+                    ::mpi::mpi_future<std::vector<char> > data = comm.recv_async< std::vector<char> >(data_handle);
+                    recv_task(data_handle.rank(), handle, data.get());
+                }
                 continue;
             }
 
@@ -180,10 +245,16 @@ private:
 
     void poll(){
         while(!finished){
-            ::mpi::mpi_comm::message_handle handle = comm.probe(::mpi::any_source, ::mpi::any_tag, 1);
+            ::mpi::mpi_comm::message_handle handle = comm.probe(::mpi::any_source, 1, 1);
             if(handle.is_valid()){
+                message_header headers;
+                std::vector<char> headers_data;
+                comm.recv(handle, headers_data);
+                headers.deserialize(headers_data);
+                headers.source = handle.rank();
+
                 std::lock_guard<std::mutex> lock(task_mutex);
-                handles.emplace_back(std::move(handle));
+                handles.emplace_back(std::move(headers));
                 task_cond.notify_one();
             }
         }
@@ -192,13 +263,13 @@ private:
 
     std::mutex task_mutex;
     std::condition_variable task_cond;
-    std::vector<::mpi::mpi_comm::message_handle> handles;
+    std::vector<message_header> handles;
 
 
     std::thread poll_thread;
     std::vector<std::thread> executers;
 
-    std::function<void (int, int, const std::vector<char> &)> recv_task;
+    std::function<void (int, message_header &, const std::vector<char> &)> recv_task;
 
     bool finished;
 
@@ -210,34 +281,51 @@ class exec_service_mpi::pimpl {
 public:
     pimpl(int* argc, char*** argv) :
         env(argc, argv),
-        io(MPI_COMM_WORLD, [&] (int rank, int id, const std::vector<char> & data) {
-            this->recv_handler(rank, id, data);
+        io(MPI_COMM_WORLD, [&] (int rank, message_header& header, const std::vector<char> & data) {
+            this->recv_handler(rank, header, data);
         }),
         n(tag_range1_begin) {}
 
 
-    void recv_handler(int rank, int id, const std::vector<char> & data){
+    void recv_handler(int rank, message_header & headers, const std::vector<char> & data){
+        int callable_id = headers.request_id;
+        int request_id = headers.identifier_token;
 
-        int callable_id = id & 0xffff;
-        int request_id = ((id >> 16) & 0xffff) + tag_range2_begin;
+        std::ostringstream ss;
+        /*ss << "on " <<  io.get_rank() << " " <<
+                   "dest from " << rank << " callable_id " << callable_id << " request_id " << request_id
+                  << " msg_type " << int(headers.message_type) << " size " << data.size();
+        std::cout << ss.str() << std::endl;*/
 
-        //std::cout << "dest from " << rank << " callable_id " << callable_id << " request_id " << request_id <<std::endl;
+        if(headers.message_type == message_type_answer){ // response
+            //std::cout << "execute answer " << std::endl;
 
-        if(callable_id == 0){ // response
             internal::result_object& req = req_stack.get_request_from_id(request_id);
             const bool completed = req.add_result(data);
              if(completed){
                 req_stack.pop_request(request_id);
             }
-        }else{
+        }else if(headers.message_type == message_type_request){
             try{
-               int new_tag = id & (~0xffff);
+               //std::cout << "execute request " <<  data.size() << " " << data.data() << std::endl;
                std::vector<char> serialized_result = int_to_function_map[callable_id]->deserialize_and_call(data);
-               io.send(rank, new_tag, serialized_result);
+
+               message_header response_headers;
+               response_headers.identifier_token = request_id;
+               response_headers.request_id = callable_id;
+               response_headers.message_type = message_type_answer;
+
+               std::vector<char> headers_data = response_headers.serialize();
+               auto f_header = io.send_async(rank, 1, headers_data);
+               auto f_data = io.send_async(rank, 2, serialized_result);
+               f_header.wait();
+               f_data.wait();
             }catch(std::exception & e){
                 std::cerr << "<exception> on rank " << io.get_comm().rank()
                           << " with request from rank " << rank << " " << e.what() << std::endl;
             }
+        }else{
+            std::cerr << "Error: recv message with unknown message type" << headers.message_type << "\n";
         }
 
     }
@@ -293,25 +381,38 @@ bool exec_service_mpi::is_local(int rank){
 void exec_service_mpi::send_request(int rank, int callable_id, const std::vector<char> & args_serialized,
                   std::unique_ptr<internal::result_object> && result_handler){
 
-    int req_id = d_ptr->req_stack.register_req(std::move(result_handler));
+    message_header headers;
+    headers.identifier_token = d_ptr->req_stack.register_req(std::move(result_handler));
+    headers.request_id = callable_id;
+    headers.message_type = message_type_request;
 
-    //std::cout << "source from " << rank << " callable_id " << callable_id << " request_id " << req_id <<std::endl;
+    auto header_data = headers.serialize();
 
-    assert(callable_id < 0xffff);
-    int tag = (callable_id & 0xffff);
-    tag |= ((req_id - tag_range2_begin) << 16);
 
-    d_ptr->io.send(rank, tag, args_serialized);
+    auto future_header = d_ptr->io.send_async(rank, 1, header_data);
+    auto future_data = d_ptr->io.send_async(rank, 2, args_serialized);
+
+    future_header.wait();
+    future_data.wait();
 }
 
 void exec_service_mpi::send_request(std::vector<int> node_list, int callable_id, const std::vector<char> &args_serialized, std::unique_ptr<internal::result_object> &&result_handler){
-    int req_id = d_ptr->req_stack.register_req(std::move(result_handler));
+    message_header headers;
+    headers.identifier_token = d_ptr->req_stack.register_req(std::move(result_handler));
+    headers.request_id = callable_id;
+    headers.message_type = message_type_request;
 
-    assert(callable_id < 0xffff);
-    int tag = (callable_id & 0xffff);
-    tag |= ((req_id - tag_range2_begin) << 16);
+    auto header_data = headers.serialize();
 
-    d_ptr->io.send_bulk(node_list, tag, args_serialized);
+    auto all_future_headers = d_ptr->io.send_bulk(node_list, 1, header_data);
+    auto all_futures = d_ptr->io.send_bulk(node_list, 2, args_serialized);
+
+    for(auto & f : all_future_headers){
+        f.wait();
+    }
+    for(auto & f : all_futures){
+        f.wait();
+    }
 
 }
 
