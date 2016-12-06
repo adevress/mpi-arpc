@@ -18,6 +18,8 @@ include(BlueGenePortability)
 include(DefineInstallationPaths)
 include(ReleaseDebugAutoFlags)
 
+set(Boost_NO_BOOST_CMAKE TRUE)
+
 find_package(Threads REQUIRED)
 find_package(Boost 1.41.0 REQUIRED system thread)
 
@@ -31,7 +33,7 @@ file(GLOB MPI_CPP_HEADERS_1 ${CMAKE_CURRENT_SOURCE_DIR}/include/arpc/*/*)
 
 
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/include/ )
-include_directories(  ${BOOST_INCLUDE_DIR}  )
+include_directories(  ${Boost_INCLUDE_DIR}  )
 include_directories(  ${MPI_C_INCLUDE_PATH}  )
 
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/deps/cereal/include )
